@@ -11,7 +11,21 @@
 #include <string.h>
 #include<netdb.h>
 
-class TcpSocket {
+
+// 一直 (发送/接收) 数据，直到(发送/接收)了len个字节
+//bool Write(const int& fd, char* buffer, const int& len);
+//bool Read(const int& fd, char* buffer, const int& len);
+bool Read(const int sockfd, char* buffer, const size_t n);
+bool Write(const int sockfd, const char* buffer, const size_t n);
+
+// 用来告诉Write和read应该发送多少和接收多少
+//bool TcpRead(const int& fd, char* buffer, int* success_obtained);
+//bool TcpWrite(const int& sockfd, char* buffer, const int ibuflen);
+bool TcpRead(const int sockfd, char* buffer, int* ibuflen);
+bool TcpWrite(const int sockfd, const char* buffer, const int ibuflen);
+
+
+class TcpServer {
 private:
 	int listend;
 	int client_fd;
@@ -20,28 +34,25 @@ private:
 	char buffer[1024];
 
 public:
-	TcpSocket(const int& port);
-	~TcpSocket() {
+	TcpServer(const int& port);
+	~TcpServer() {
 		close(listend);
 		close(client_fd);
 
 	};
 
-	inline bool Bind() { return bind(listend, (struct sockaddr*)&addr, sizeof(addr)) == 0; }
-	inline bool Listen(const int& len = 5) { return listen(listend, len) == 0; }
-
+	bool Bind();
+	bool Listen(const int& len = 5);
 	void Accept();
 
 	int Send(const char* str);
- 
-	const char* get_buffer() const {
-		return buffer;
-	}
-	int Recv() {
-		memset(buffer, 0, sizeof(buffer));
-		return recv(client_fd, buffer, sizeof(buffer), 0);
-	}
+	int Recv();
+
+	const char* get_buffer() const { return buffer; }
+	const char* get_client_ip()const {return inet_ntoa(client_addr.sin_addr);}
 };
+
+
 
 
 class TcpClient {
@@ -54,26 +65,36 @@ public:
 	~TcpClient() { close(fd); };
 
 
-	bool Connect() {
-		return connect(fd,(struct sockaddr*)&server,sizeof(server)) == 0;
-	}
+	bool Connect();
 	
-	int Send(const char* str) {
-		memset(buffer, 0, sizeof(buffer));
-		strcpy(buffer, str);
-		return send(fd, buffer, strlen(buffer),0);
-	}
-	int Recv() {
-		memset(buffer, 0, sizeof(buffer));
-		return recv(fd, buffer, sizeof(buffer),0);
-	}
-	const char* get_buffer() const {
-		return buffer;
-	}
+	int Send(const char* str);
+	int Recv();
+
+	const char* get_buffer() const {return buffer;}
 };
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+*	这里是将 send 和 recv 函数单独提取出来了
+*	提取出来也为了解决  "粘包"  和   "分包"    的问题
+* 
+*	Write，Read   这两个函数确保可以读取指定长度的数据
+*	TcpWrite,TcpRead 这两个函数是来告诉 Write 和 Read函数应该接收多少字节
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+// 一直 (发送/接收) 数据，直到(发送/接收)了len个字节
+//bool Write(const int& fd, const char* buffer, const int& len);
+//bool Read(const int& fd, char* buffer, const int& len);
+
+// 用来告诉Write和read应该发送多少和接收多少
+//bool TcpRead(const int& fd, char* buffer, int* success_obtained);
+//bool TcpWrite(const int& sockfd, const char* buffer, const int& ibuflen);
+
+// 现在暂时不考虑使用select模型这类东西
+//-------------------------------------------------------------------------------------------------------------
+
 // Send和recv函数可以单独提取出来
+//		产生了{Write，Read},{TcpWrite,TcpRead}函数。  使得数据传输更加可靠
 // buffer 可以单独定义一个类
 // 基类Socket可以有一个sock_fd,
 //		继承Socket:  TCP服务端(自己再定义一个client_fd)
