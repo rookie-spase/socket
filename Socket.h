@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include<netdb.h>
+#include<string>
 
 
 // 一直 (发送/接收) 数据，直到(发送/接收)了len个字节
@@ -70,31 +71,49 @@ public:
 	int Send(const char* str);
 	int Recv();
 
-	const char* get_buffer() const {return buffer;}
+	const char* get_buffer() const {return buffer; }
 };
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
-*	这里是将 send 和 recv 函数单独提取出来了
-*	提取出来也为了解决  "粘包"  和   "分包"    的问题
-* 
-*	Write，Read   这两个函数确保可以读取指定长度的数据
-*	TcpWrite,TcpRead 这两个函数是来告诉 Write 和 Read函数应该接收多少字节
-* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*
+class Buffer {
+public:
+	std::string data;
 
-// 一直 (发送/接收) 数据，直到(发送/接收)了len个字节
-//bool Write(const int& fd, const char* buffer, const int& len);
-//bool Read(const int& fd, char* buffer, const int& len);
+	Buffer(const std::string& str) :data(str) {};
 
-// 用来告诉Write和read应该发送多少和接收多少
-//bool TcpRead(const int& fd, char* buffer, int* success_obtained);
-//bool TcpWrite(const int& sockfd, const char* buffer, const int& ibuflen);
+	operator char* () {			// 隐式转换
+		return const_cast<char*>(data.c_str());
+	};			// 这是一个技术点，想要class隐式转换得写   operator 目标类型(){}
+				// 那这样的话就不需要再考虑任何安全性和兼容性了
+				// 因为可以向const char* 转换嘛
+	operator const char* () {			// 隐式转换
+		return data.c_str();
+	};
+	char* operator = (const char* str) {
+		data = str;
+		return this->operator char* ();
+	};
 
-// 现在暂时不考虑使用select模型这类东西
-//-------------------------------------------------------------------------------------------------------------
+};
+*/
+
+
+			// 这是真简单啊
+
+class sockException :public std::exception {
+private:
+	std::string errMsg;
+public:
+	virtual const char* what() const noexcept {
+		return errMsg.c_str();
+	}
+	sockException(const std::string& str) :errMsg(str) {};
+};
+
 
 // Send和recv函数可以单独提取出来
-//		产生了{Write，Read},{TcpWrite,TcpRead}函数。  使得数据传输更加可靠
+//		产生了{Write，Read},{TcpWrite,TcpRead}函数。  使得数据传输更加可靠  
 // buffer 可以单独定义一个类
 // 基类Socket可以有一个sock_fd,
 //		继承Socket:  TCP服务端(自己再定义一个client_fd)
