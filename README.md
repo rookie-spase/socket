@@ -12,6 +12,7 @@
 第一版本： 就是对简单的socket进行封装，没有任何特性
 第二版本： 将Send和Recv函数提取出来，提升传输数据可靠性；  
     第二版的read和write函数咋都写不对，草
+第三版本： 写入sockException,不带error Code
 
 
 #运行
