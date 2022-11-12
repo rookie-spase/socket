@@ -26,18 +26,36 @@ bool TcpRead(const int sockfd, char* buffer, int* ibuflen);
 bool TcpWrite(const int sockfd, const char* buffer, const int ibuflen);
 
 
-class TcpServer {
+
+class base_socket {
+protected:
+	int fd;				
+				//
+				/*
+				* 客户端:通信的socket
+				* 服务端: 监听的socket
+				*		也想作为服务器通信socket但是，服务器需要先listen之后从accept中得到socket啊
+				*/
+	char buffer[1024];
+
+public:
+	base_socket() :fd(socket(AF_INET, SOCK_STREAM, 0)) { memset(buffer, 0, sizeof(buffer)); }
+	virtual ~base_socket() { if (fd > 0)close(fd); };
+
+	virtual int Send(const char* str) = 0;
+	virtual int Recv() = 0;							
+};
+
+class TcpServer :public base_socket{
 private:
-	int listend;
 	int client_fd;
 	struct sockaddr_in addr;
 	struct sockaddr_in client_addr;
-	char buffer[1024];
 
 public:
 	TcpServer(const int& port);
 	~TcpServer() {
-		close(listend);
+		// 这里会先调用tcp析构然后再调用base_socket的析构
 		close(client_fd);
 
 	};
@@ -46,22 +64,20 @@ public:
 	bool Listen(const int& len = 5);
 	void Accept();
 
-	int Send(const char* str);
-	int Recv();
+	virtual int Send(const char* str)override;
+	virtual int Recv()override;
 
 	const char* get_buffer() const { return buffer; }
 	const char* get_client_ip()const {return inet_ntoa(client_addr.sin_addr);}
 };
 
 
-class TcpClient {
+class TcpClient :public base_socket {
 private:
-	int fd;
 	struct sockaddr_in  server;
-	char buffer[1024];
 public:
 	TcpClient(const int& port, const char* ip);
-	~TcpClient() { close(fd); };
+	~TcpClient() {};
 
 
 	bool Connect();
@@ -118,6 +134,8 @@ public:
 					//select模型自己定义个fd_set
 					//poll模型自己定义数组struct pollfd fds[MAXNFDS];
 					//epoll模型自己创建poll编号 int epollfd;
+
+
 
 
 #endif

@@ -1,10 +1,8 @@
 #include"Socket.h"
 
 TcpServer::TcpServer(const int& port)
-	:client_fd(-1),listend(socket(AF_INET, SOCK_STREAM, 0))
+	:client_fd(-1),base_socket()
 {
-		memset(buffer, 0, sizeof(buffer));
-
 
 		addr.sin_family = AF_INET;
 		addr.sin_port = htons(port);
@@ -15,18 +13,18 @@ TcpServer::TcpServer(const int& port)
 
 bool TcpServer::Bind()
 {
-	return bind(listend, (struct sockaddr*)&addr, sizeof(addr)) == 0;
+	return bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == 0;
 }
 
 bool TcpServer::Listen(const int& len)
 {
-	return listen(listend, len) == 0;
+	return listen(fd, len) == 0;
 }
 
 void TcpServer::Accept()
 {
 		int socklen = sizeof(client_addr);
-		client_fd = accept(listend, (struct sockaddr*)&client_addr, (socklen_t*)&socklen);
+		client_fd = accept(fd, (struct sockaddr*)&client_addr, (socklen_t*)&socklen);
 		std::cout << "client " << inet_ntoa(client_addr.sin_addr) << " Linked." << std::endl;
 	
 }
@@ -47,7 +45,7 @@ int TcpServer::Recv()
 }
 
 TcpClient::TcpClient(const int& port, const char* ip)
-	:fd(socket(AF_INET, SOCK_STREAM, 0))
+	:base_socket()
 {
 	struct hostent* h = gethostbyname(ip);
 
