@@ -32,6 +32,12 @@ namespace Util {
 	int get_local_port(int fd);
 	string get_peer_ip(int fd);		// 获取远程的信息就改成getpeername就行；
 	int get_peer_port(int fd);
+
+
+
+
+
+
 };
 
 

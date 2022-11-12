@@ -30,7 +30,6 @@ bool TcpWrite(const int sockfd, const char* buffer, const int ibuflen);
 class base_socket {
 protected:
 	int fd;				
-				//
 				/*
 				* 客户端:通信的socket
 				* 服务端: 监听的socket
@@ -62,10 +61,13 @@ public:
 
 	bool Bind();
 	bool Listen(const int& len = 5);
-	void Accept();
+	bool Accept();
 
 	virtual int Send(const char* str)override;
 	virtual int Recv()override;
+
+	void close_listen() { close(fd); }
+	void close_connect() { close(client_fd); }
 
 	const char* get_buffer() const { return buffer; }
 	const char* get_client_ip()const {return inet_ntoa(client_addr.sin_addr);}
@@ -82,8 +84,8 @@ public:
 
 	bool Connect();
 	
-	int Send(const char* str);
-	int Recv();
+	virtual int Send(const char* str)override;
+	virtual int Recv()override;
 
 	const char* get_buffer() const {return buffer; }
 };

@@ -13,7 +13,7 @@ TcpServer::TcpServer(const int& port)
 
 bool TcpServer::Bind()
 {
-	return bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == 0;
+	return ::bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == 0;
 }
 
 bool TcpServer::Listen(const int& len)
@@ -21,13 +21,16 @@ bool TcpServer::Listen(const int& len)
 	return listen(fd, len) == 0;
 }
 
-void TcpServer::Accept()
+bool TcpServer::Accept()
 {
 		int socklen = sizeof(client_addr);
 		client_fd = accept(fd, (struct sockaddr*)&client_addr, (socklen_t*)&socklen);
 		std::cout << "client " << inet_ntoa(client_addr.sin_addr) << " Linked." << std::endl;
-	
+
+		
+		return client_fd < 0 ? false:true ;
 }
+
 
 int TcpServer::Send(const char* str)
 {
