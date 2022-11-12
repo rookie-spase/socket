@@ -58,7 +58,7 @@ TcpClient::TcpClient(const int& port, const char* ip)
 
 bool TcpClient::Connect()
 {
-	return connect(fd, (struct sockaddr*)&server, sizeof(server)) == 0;
+	return ::connect(fd, (struct sockaddr*)&server, sizeof(server)) == 0;
 }
 
 int TcpClient::Send(const char* str)

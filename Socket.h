@@ -54,8 +54,6 @@ public:
 };
 
 
-
-
 class TcpClient {
 private:
 	int fd;
@@ -99,8 +97,7 @@ public:
 */
 
 
-			// 这是真简单啊
-
+		// 这是真简单啊
 class sockException :public std::exception {
 private:
 	std::string errMsg;
