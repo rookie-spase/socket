@@ -23,7 +23,7 @@ bool Write(const int sockfd, const char* buffer, const size_t n);
 //bool TcpRead(const int& fd, char* buffer, int* success_obtained);
 //bool TcpWrite(const int& sockfd, char* buffer, const int ibuflen);
 bool TcpRead(const int sockfd, char* buffer, int* ibuflen);
-bool TcpWrite(const int sockfd, const char* buffer, const int ibuflen);
+bool TcpWrite(const int sockfd, const char* buffer, const int ibuflen = 0);
 
 
 
@@ -33,7 +33,8 @@ protected:
 				/*
 				* 客户端:通信的socket
 				* 服务端: 监听的socket
-				*		也想作为服务器通信socket但是，服务器需要先listen之后从accept中得到socket啊
+				* 基于select实现的服务端: 监听的socket
+				*		也想作为服务器通信socket但是，服务器需要先listen之后从accept中得到socket才行
 				*/
 	char buffer[1024];
 
@@ -72,8 +73,6 @@ public:
 	const char* get_buffer() const { return buffer; }
 	const char* get_client_ip()const {return inet_ntoa(client_addr.sin_addr);}
 };
-
-
 class TcpClient :public base_socket {
 private:
 	struct sockaddr_in  server;
@@ -88,6 +87,30 @@ public:
 	virtual int Recv()override;
 
 	const char* get_buffer() const {return buffer; }
+};
+
+
+struct SelectServer :public base_socket {
+private:
+	fd_set rally_of_socket;
+	int max_fd;
+
+	struct sockaddr_in server;
+
+	virtual int Send(const char* str)override {};
+	virtual int Recv()override {};
+
+public:
+	SelectServer(const int& port, const int& listen_count = 5);
+	~SelectServer();
+
+	void polling();			// 轮询，从最开始询问，代替for;
+							// 也可以理解为void run()
+
+	bool Recv(const int& fd);		// 这是需要参数的，因为select从base_sock继承来的sock是一个监听的socket
+	bool Send(const int& fd,const char* str);
+
+
 };
 
 
@@ -116,6 +139,7 @@ public:
 
 
 		// 这是真简单啊
+	// 这段在g++ 编译的时候要加上选项 -std=c++11
 class sockException :public std::exception {
 private:
 	std::string errMsg;

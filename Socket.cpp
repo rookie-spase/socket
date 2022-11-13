@@ -1,4 +1,5 @@
 #include"Socket.h"
+using namespace std;
 
 TcpServer::TcpServer(const int& port)
 	:client_fd(-1),base_socket()
@@ -231,3 +232,130 @@ bool TcpWrite(const int fd, const char* buffer, const int len)
 
 	return true;
 }
+
+SelectServer::SelectServer(const int& port, const int& listen_count)
+	:base_socket(), max_fd(fd) {
+
+	server.sin_port = htons(port);
+	server.sin_family = AF_INET;
+	server.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	try {
+		if (bind(fd, (struct sockaddr*)&server, sizeof(server)) < 0) {
+			throw sockException("bind错误");
+		}
+		if (listen(fd, listen_count) != 0) {
+			throw sockException("listen错误");
+		}
+	}
+	catch (const sockException& e) {
+		cout << e.what() << endl;
+		close(fd);
+		exit(0);
+	}
+
+	FD_ZERO(&rally_of_socket);
+	FD_SET(fd, &rally_of_socket);
+};
+
+
+void SelectServer::polling()
+{
+	
+	cout << "start polling" << endl;
+	while (1) {
+			// value of return form select
+			//	select return value
+		fd_set tmp = rally_of_socket;
+		int srv = select(max_fd+1, &tmp, NULL, NULL, NULL);		// 先不写nullptr
+
+		if (srv < 0) {
+			cout << "select was failed." << endl;
+			break;
+		}
+		if (srv == 0) {
+			cout << "select overtime" << endl;
+			continue;
+		}
+		
+		for (int Eventidx = 0; Eventidx <= max_fd; ++Eventidx) {
+			if (FD_ISSET(Eventidx, &tmp) <= 0)continue;
+		
+			if (Eventidx == fd) {			// fd是监听的socket，也就是说有客户端需要连接上来
+				struct sockaddr_in client;
+				socklen_t len = sizeof(client);
+				int client_sock = accept(Eventidx,(struct sockaddr*)&client,&len);
+
+				if (client_sock < 0) {
+					cout << "reception failed" << endl;
+					continue;
+				}
+				FD_SET(client_sock,&rally_of_socket);
+
+
+				max_fd = (max_fd < client_sock) ? client_sock : max_fd;
+
+				cout << "client " << client_sock << " Linked." << endl;
+				continue;
+			}
+			else {						// 剩下的情况就只能是客户端来数据了
+				
+
+				bool isok = Recv(Eventidx);
+				
+				if (!isok)						// 客户端断开连接
+				{
+					cout << "client "<< Eventidx <<" disconnectd" << endl;
+					close(Eventidx);								// 断开连接
+
+					FD_CLR(Eventidx, &rally_of_socket);				 // 从原来的集合当中去除
+
+					if (Eventidx == max_fd)
+					{
+						for (int i = max_fd; i > 0; i--)
+						{
+							if (FD_ISSET(i, &rally_of_socket))
+							{
+								max_fd = i; break;
+							}
+						}
+
+						cout << "maxfd is " << max_fd << endl;
+					}
+
+					continue;
+				}
+				cout << "recv: " << buffer << endl;
+				
+				
+				Send(Eventidx,"ok");
+				cout << "send: " << buffer << endl;
+			}
+			
+		}
+
+	}
+	
+
+}
+
+bool SelectServer::Recv(const int& arg_fd)
+{
+	memset(buffer, 0, sizeof(buffer));
+	int len = 0;
+	return TcpRead(arg_fd, buffer, &len);
+};
+
+bool SelectServer::Send(const int& arg_fd, const char* str)
+{
+	memset(buffer, 0, sizeof(buffer));
+	strcpy(buffer, str);
+	return TcpWrite(arg_fd, buffer);
+};
+
+
+SelectServer::~SelectServer() {
+	for (int i = 0; i < max_fd; ++i)
+		if (FD_ISSET(i, &rally_of_socket))
+			close(i);
+};

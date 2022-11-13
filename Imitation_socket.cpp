@@ -5,8 +5,8 @@ using namespace std;
 
 
 
+/* 多进程服务器
 TcpServer server(123);
-
 void fth_ext(int sig) {
 	if (sig > 0)
 	{
@@ -80,6 +80,8 @@ int main(int argc,char* argv[])
 	
 
 }
+*/
+/* 客户端
 int main(int argc, char* argv[])
 {
 
@@ -98,4 +100,17 @@ int main(int argc, char* argv[])
 	}
 	client.Send("none");
 
+}
+*/
+
+// 基于select的服务端
+
+int main(int argc,char* argv[]) {
+	
+	SelectServer server(atoi(argv[1]));
+
+
+	server.polling();
+
+	return 0;
 }
