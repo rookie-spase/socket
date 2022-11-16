@@ -258,6 +258,38 @@ SelectServer::SelectServer(const int& port, const int& listen_count)
 	FD_SET(fd, &rally_of_socket);
 };
 
+PollServer::PollServer(const int& port, const int& listen_count) 
+	:base_socket(), maxfd(fd) 
+{
+		server.sin_family = AF_INET;
+		server.sin_port = htons(port);
+		server.sin_addr.s_addr = htonl(INADDR_ANY);
+
+
+		try {
+			if (bind(fd, (struct sockaddr*)&server, sizeof(server)) < 0) {
+				throw sockException("bind error");
+			}
+
+			if (listen(fd, listen_count) != 0) {
+				throw sockException("listen error");
+			}
+
+		}
+		catch (const sockException& e) {
+			cout << "Error : " << e.what() << endl;
+			close(fd);
+			exit(0);
+		}
+
+		for (int i = 0; i < MAXSOCK; ++i)fds[i].fd = -1;
+
+		fds[fd].fd = fd;
+		fds[fd].events = POLLIN;
+
+	
+};
+
 
 void SelectServer::polling()
 {
@@ -358,4 +390,95 @@ SelectServer::~SelectServer() {
 	for (int i = 0; i < max_fd; ++i)
 		if (FD_ISSET(i, &rally_of_socket))
 			close(i);
+};
+PollServer::~PollServer()
+{
+	for (int i = 0; i < MAXSOCK; ++i)
+		if (fds[i].fd != -1)
+			close(fds[i].fd);
+}
+
+void PollServer::polling() {
+	cout << "start polling" << endl;
+
+
+	while (1) {
+		// return  values
+		int rvs = poll(fds, maxfd + 1, 5000);
+
+		if (rvs < 0) {
+			cout << "poll failed." << endl;
+			break;
+		}
+
+		if (rvs == 0) {
+			cout << "poll overtime" << endl;
+			continue;
+		}
+
+
+		for (int eventfd = 0; eventfd <= maxfd; ++eventfd) {
+			if (fds[eventfd].fd < 0) continue;
+			if ((fds[eventfd].revents & POLLIN) == 0) continue;			// 判断条件
+
+			fds[eventfd].revents = 0;						// 标记清空
+
+			if (eventfd == fd) {
+				struct sockaddr_in client;
+				socklen_t len = sizeof(client);
+
+				int arv = accept(fd, (struct sockaddr*)&client, &len);
+
+				if (arv < 0) {
+					cout << "accept failed." << endl;
+					continue;
+				}
+
+				cout << "client: " << arv << "Linked ." << endl;
+
+				fds[arv].fd = arv;
+				fds[arv].events = POLLIN;
+
+
+				maxfd = (maxfd < arv) ? arv : maxfd;
+				continue;
+			}
+			else {
+
+				bool is_recved = Recv(eventfd);				// 客户来数据了?
+
+				if (!is_recved) {    //客户断开
+					close(eventfd);
+					fds[eventfd].fd = -1;
+
+					if (eventfd == maxfd)
+					{
+						for (int ii = maxfd; ii > 0; ii--)
+						{
+							if (fds[ii].fd != -1)
+							{
+								maxfd = ii; break;
+							}
+						}
+
+						printf("maxfd=%d\n", maxfd);
+					}
+
+					continue;
+				}
+
+				cout << "Recv: " << buffer << endl;
+
+				Send(eventfd, "OK");
+				cout << "Send:" << "ok" << endl;
+
+
+			}
+
+		}
+
+
+	}
+
+
 };

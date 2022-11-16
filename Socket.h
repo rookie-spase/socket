@@ -11,6 +11,7 @@
 #include <string.h>
 #include<netdb.h>
 #include<string>
+#include <poll.h>
 
 
 // 一直 (发送/接收) 数据，直到(发送/接收)了len个字节
@@ -34,6 +35,7 @@ protected:
 				* 客户端:通信的socket
 				* 服务端: 监听的socket
 				* 基于select实现的服务端: 监听的socket
+				* 基于poll的服务端: 监听socket
 				*		也想作为服务器通信socket但是，服务器需要先listen之后从accept中得到socket才行
 				*/
 	char buffer[1024];
@@ -110,6 +112,35 @@ public:
 	bool Recv(const int& fd);		// 这是需要参数的，因为select从base_sock继承来的sock是一个监听的socket
 	bool Send(const int& fd,const char* str);
 
+
+};
+// poll模型和select 模型差别不大,把poll整完了之后epoll也是类似
+const int MAXSOCK = 1024;
+class PollServer :public base_socket {
+private:
+	struct pollfd fds[1024];				// 管理socket的集合
+	struct sockaddr_in server;				// 本身的ip地址
+	int maxfd;
+
+	virtual int Send(const char* str) {};
+	virtual int Recv() {};
+
+public:
+	PollServer(const int& port, const int& listen_count = 5);
+	~PollServer();
+
+	void polling();
+	
+	bool Recv(const int& fd) {
+		memset(buffer,0,sizeof(buffer));
+		int len = 0;
+		return TcpRead(fd, buffer, &len);
+	}
+	bool Send(const int& fd, const char* str) {
+		memset(buffer, 0, sizeof(buffer));
+		strcpy(buffer,str);
+		return TcpWrite(fd, buffer);
+	}
 
 };
 
