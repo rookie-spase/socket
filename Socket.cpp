@@ -371,19 +371,6 @@ void SelectServer::polling()
 
 }
 
-bool SelectServer::Recv(const int& arg_fd)
-{
-	memset(buffer, 0, sizeof(buffer));
-	int len = 0;
-	return TcpRead(arg_fd, buffer, &len);
-};
-
-bool SelectServer::Send(const int& arg_fd, const char* str)
-{
-	memset(buffer, 0, sizeof(buffer));
-	strcpy(buffer, str);
-	return TcpWrite(arg_fd, buffer);
-};
 
 
 SelectServer::~SelectServer() {
@@ -482,3 +469,141 @@ void PollServer::polling() {
 
 
 };
+
+bool base_socket::Recv(const int& fd)
+{
+	memset(buffer, 0, sizeof(buffer));
+	int len = 0;
+	return TcpRead(fd, buffer, &len);
+}
+
+bool base_socket::Send(const int& fd, const char* str)
+{
+	memset(buffer, 0, sizeof(buffer));
+	strcpy(buffer, str);
+	return TcpWrite(fd, buffer);
+}
+
+EpollServer::EpollServer(const int& port,const int& listen_count)
+	:base_socket(), epollfd(epoll_create(1)) {
+
+	ev.events = EPOLLIN;
+	ev.data.fd = fd;
+
+	struct sockaddr_in server;
+	server.sin_family = AF_INET;
+	server.sin_port = htons(port);
+	server.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	try {
+		
+		
+		bind(fd,(struct sockaddr*)&server,sizeof(server));
+
+		listen(fd,listen_count);
+
+		if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev) != 0)
+			throw sockException("Add fail");
+	}
+	catch (const sockException& e) {
+		cout << "Error:" << e.what() << endl;
+	};
+
+
+	setnonblocking(fd);
+
+};
+
+const int MAXEVENTS = 1024;
+void EpollServer::polling() {
+	cout << "start polling" << endl;
+
+	
+	while (1) {
+		struct epoll_event evs[MAXEVENTS];
+
+		int rv = epoll_wait(epollfd,evs, MAXEVENTS,-1);
+
+		if (rv < 0)
+		{
+			cerr << "epoll failed." << endl;
+			break;
+		}
+		if (rv == 0)
+		{
+			cout << "epoll Overtime." << endl;
+			continue;
+		}
+
+
+		for (int i = 0; i < rv; ++i) {
+			if ((evs[i].data.fd == fd) && (evs[i].events & EPOLLIN))
+			{
+				while (1) {
+					// 如果发生事件的是listensock，表示有新的客户端连上来。
+					struct sockaddr_in client;
+					socklen_t len = sizeof(client);
+					int clientsock = accept(fd, (struct sockaddr*)&client, &len);
+					if (clientsock < 0)
+					{
+						printf("accept() failed.\n"); break;
+					}
+
+					// 把新的客户端添加到epoll中。
+					memset(&ev, 0, sizeof(ev));
+					ev.data.fd = clientsock;
+					ev.events = EPOLLIN;
+					epoll_ctl(epollfd, EPOLL_CTL_ADD, clientsock, &ev);
+
+					printf("client(socket=%d) connected ok.\n", clientsock);
+				}
+				continue;
+			}
+			else if (evs[i].events & EPOLLIN)
+			{
+				cout << "A" << endl;
+			
+				bool is_recv = Recv(evs[i].data.fd);
+
+				// 发生了错误或socket被对方关闭。
+				if (!is_recv)
+				{
+					printf("client(eventfd=%d) disconnected.\n", evs[i].data.fd);
+
+					// 把已断开的客户端从epoll中删除。
+					memset(&ev, 0, sizeof(struct epoll_event));
+					ev.events = EPOLLIN;
+					ev.data.fd = evs[i].data.fd;
+					epoll_ctl(epollfd, EPOLL_CTL_DEL, evs[i].data.fd, &ev);
+					close(evs[i].data.fd);
+					continue;
+				}
+
+				cout << "Recv: " << buffer << endl;
+
+
+				string str;
+				cout << "say what : ";
+				cin >> str;
+
+
+				//Send(evs[i].data.fd, "ok");
+				Send(evs[i].data.fd, str.c_str());
+				cout << "Send: " << buffer << endl;
+			}
+
+		}
+		
+
+	}
+
+
+}
+
+
+
+int setnonblocking(int sockfd)
+{
+	if (fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFD, 0) | O_NONBLOCK) == -1)  return -1;
+	return 0;
+}

@@ -12,6 +12,8 @@
 #include<netdb.h>
 #include<string>
 #include <poll.h>
+#include<sys/epoll.h>
+#include <fcntl.h>
 
 
 // 一直 (发送/接收) 数据，直到(发送/接收)了len个字节
@@ -44,8 +46,8 @@ public:
 	base_socket() :fd(socket(AF_INET, SOCK_STREAM, 0)) { memset(buffer, 0, sizeof(buffer)); }
 	virtual ~base_socket() { if (fd > 0)close(fd); };
 
-	virtual int Send(const char* str) = 0;
-	virtual int Recv() = 0;							
+	virtual bool Recv(const int& fd);
+	virtual bool Send(const int& fd, const char* str);
 };
 
 class TcpServer :public base_socket{
@@ -66,8 +68,8 @@ public:
 	bool Listen(const int& len = 5);
 	bool Accept();
 
-	virtual int Send(const char* str)override;
-	virtual int Recv()override;
+	int Send(const char* str);
+	int Recv();
 
 	void close_listen() { close(fd); }
 	void close_connect() { close(client_fd); }
@@ -85,8 +87,8 @@ public:
 
 	bool Connect();
 	
-	virtual int Send(const char* str)override;
-	virtual int Recv()override;
+	int Send(const char* str);
+	int Recv();
 
 	const char* get_buffer() const {return buffer; }
 };
@@ -99,18 +101,12 @@ private:
 
 	struct sockaddr_in server;
 
-	virtual int Send(const char* str)override {};
-	virtual int Recv()override {};
-
 public:
 	SelectServer(const int& port, const int& listen_count = 5);
 	~SelectServer();
 
 	void polling();			// 轮询，从最开始询问，代替for;
 							// 也可以理解为void run()
-
-	bool Recv(const int& fd);		// 这是需要参数的，因为select从base_sock继承来的sock是一个监听的socket
-	bool Send(const int& fd,const char* str);
 
 
 };
@@ -122,28 +118,39 @@ private:
 	struct sockaddr_in server;				// 本身的ip地址
 	int maxfd;
 
-	virtual int Send(const char* str) {};
-	virtual int Recv() {};
+
 
 public:
 	PollServer(const int& port, const int& listen_count = 5);
 	~PollServer();
 
 	void polling();
-	
-	bool Recv(const int& fd) {
-		memset(buffer,0,sizeof(buffer));
-		int len = 0;
-		return TcpRead(fd, buffer, &len);
-	}
-	bool Send(const int& fd, const char* str) {
-		memset(buffer, 0, sizeof(buffer));
-		strcpy(buffer,str);
-		return TcpWrite(fd, buffer);
-	}
-
 };
 
+/*
+struct epoll_event {
+	__uint32_t events;    
+	epoll_data_t data;     
+};
+*/
+
+int setnonblocking(int sockfd);
+class EpollServer : public base_socket {
+private:
+	struct epoll_event ev;
+	int epollfd;
+	//struct sockaddr_in server;
+public:
+	EpollServer(const int& port,const int& listen_count = 5 );
+	~EpollServer() { close(epollfd); };	// 不用在析构添加   释放循环   ， 因为在polling的时候已经解决了。 而listen  socket  则是在基类base_socket中被释放了
+
+
+	void polling();
+
+
+
+
+};
 
 /*
 class Buffer {
